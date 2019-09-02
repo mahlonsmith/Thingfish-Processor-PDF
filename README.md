@@ -1,8 +1,5 @@
 # Thingfish-Processor-PDF
 
-home
-: https:/bitbucket.org/mahlon/Thingfish-Processor-PDF
-
  * home:
    * http://code.martini.nu/thingfish-processor-pdf
  * mirrors:
@@ -46,7 +43,7 @@ You can check out the current development source with Mercurial
 
 After checking out the source, run:
 
-    $ rake newb
+    $ rake
 
 This task will install any missing dependencies, run the tests/specs,
 and generate the API documentation.

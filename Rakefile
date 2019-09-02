@@ -33,7 +33,6 @@ spec = Gem::Specification.new do |s|
 	s.name         = 'thingfish-processor-pdf'
 	s.version      = '0.1.0'
 	s.license      = 'BSD-3-Clause'
-	s.has_rdoc     = true
 	s.require_path = 'lib'
 	s.bindir       = 'bin'
 	s.files        = File.read( __FILE__ ).split( /^__END__/, 2 ).last.split

@@ -1,94 +1,115 @@
 #!/usr/bin/env rake
+# vim: set nosta noet ts=4 sw=4:
 
-begin
-	require 'hoe'
-rescue LoadError
-	abort "This Rakefile requires hoe (gem install hoe)"
-end
+require 'rake/clean'
+require 'pathname'
 
-GEMSPEC = 'thingfish-processor-pdf.gemspec'
-
-
-Hoe.plugin :mercurial
-Hoe.plugin :signing
-Hoe.plugin :deveiate
-
-Hoe.plugins.delete :rubyforge
-
-hoespec = Hoe.spec 'thingfish-processor-pdf' do |spec|
-	spec.readme_file = 'README.md'
-	spec.history_file = 'History.md'
-	spec.extra_rdoc_files = FileList[ '*.rdoc', '*.md' ]
-	spec.urls = {
-		home: 'https://bitbucket.org/mahlon/thingfish-processor-pdf'
-	}
-
-	spec.extra_rdoc_files = FileList[ '*.rdoc', '*.md' ]
-	spec.license 'BSD-3-Clause'
-
-	spec.developer 'Mahlon E. Smith', 'mahlon@martini.nu'
-
-	spec.dependency 'thingfish',   '~> 0.5'
-	spec.dependency 'pdf-reader',  '~> 1.4'
-	spec.dependency 'loggability', '~> 0.11'
-
-	spec.dependency 'hoe-deveiate',            '~> 0.8', :developer
-	spec.dependency 'simplecov',               '~> 0.12', :developer
-	spec.dependency 'rdoc-generator-fivefish', '~> 0.1', :developer
-
-	spec.require_ruby_version( '>=2.3.1' )
-	spec.hg_sign_tags = true if spec.respond_to?( :hg_sign_tags= )
-	spec.check_history_on_release = true if spec.respond_to?( :check_history_on_release= )
-end
-
-
-ENV['VERSION'] ||= hoespec.spec.version.to_s
-
-# Run the tests before checking in
-task 'hg:precheckin' => [ :check_history, :check_manifest, :gemspec, :spec ]
-
-task :test => :spec
-
-# Rebuild the ChangeLog immediately before release
-task :prerelease => 'ChangeLog'
-CLOBBER.include( 'ChangeLog' )
-
-desc "Build a coverage report"
-task :coverage do
-	ENV["COVERAGE"] = 'yes'
-	Rake::Task[:spec].invoke
-end
+BASEDIR = Pathname( __FILE__ ).dirname.relative_path_from( Pathname.pwd )
+LIBDIR  = BASEDIR + 'lib' + 'thingfish'
 CLOBBER.include( 'coverage' )
 
+$LOAD_PATH.unshift( LIBDIR.to_s )
 
-# Use the fivefish formatter for docs generated from development checkout
-if File.directory?( '.hg' )
+if Rake.application.options.trace
+    $trace = true
+    $stderr.puts '$trace is enabled'
+end
+
+task :default => [ :spec, :docs, :package ]
+
+
+########################################################################
+### P A C K A G I N G
+########################################################################
+
+require 'rubygems'
+require 'rubygems/package_task'
+spec = Gem::Specification.new do |s|
+	s.homepage     = 'http://projects.martini.nu/ruby-modules'
+	s.authors      = [ 'Mahlon E. Smith', 'Michael Granger' ]
+	s.email        = [ 'mahlon@martini.nu', 'ged@faeriemud.org' ]
+	s.platform     = Gem::Platform::RUBY
+	s.summary      = "Extract PDF metadata for the Thingfish digital asset manager."
+	s.name         = 'thingfish-processor-pdf'
+	s.version      = '0.1.0'
+	s.license      = 'BSD-3-Clause'
+	s.has_rdoc     = true
+	s.require_path = 'lib'
+	s.bindir       = 'bin'
+	s.files        = File.read( __FILE__ ).split( /^__END__/, 2 ).last.split
+	#s.executables  = %w[]
+	s.description  = <<-EOF
+		A basic pdf processor plugin for the Thingfish digital asset manager.
+		It extracts PDF metadata from uploaded files.
+	EOF
+	s.required_rubygems_version = '>= 2.0.3'
+	s.required_ruby_version = '>= 2.0.0'
+
+	s.add_dependency 'thingfish', '~> 0.5'
+	s.add_dependency 'pdf-reader', '~> 1.4'
+
+	s.add_development_dependency 'rspec',     '~> 3.7'
+	s.add_development_dependency 'simplecov', '~> 0.16'
+end
+
+Gem::PackageTask.new( spec ) do |pkg|
+	pkg.need_zip = true
+	pkg.need_tar = true
+end
+
+
+########################################################################
+### D O C U M E N T A T I O N
+########################################################################
+
+begin
 	require 'rdoc/task'
 
-	Rake::Task[ 'docs' ].clear
-	RDoc::Task.new( 'docs' ) do |rdoc|
-	    rdoc.main = "README.rdoc"
-		rdoc.markup = 'markdown'
-	    rdoc.rdoc_files.include( "*.rdoc", "ChangeLog", "lib/**/*.rb" )
-	    rdoc.generator = :fivefish
-		rdoc.title = 'Thingfish-Processor-PDF'
-	    rdoc.rdoc_dir = 'doc'
+	desc 'Generate rdoc documentation'
+	RDoc::Task.new do |rdoc|
+		rdoc.name       = :docs
+		rdoc.rdoc_dir   = 'docs'
+		rdoc.main       = "README.rdoc"
+		rdoc.options    = [ '-f', 'fivefish' ]
+		rdoc.rdoc_files = [ 'lib', *FileList['*.rdoc'] ]
 	end
+
+	RDoc::Task.new do |rdoc|
+		rdoc.name       = :doc_coverage
+		rdoc.options    = [ '-C1' ]
+	end
+
+rescue LoadError
+	$stderr.puts "Omitting 'docs' tasks, rdoc doesn't seem to be installed."
 end
 
-task :gemspec => GEMSPEC
-file GEMSPEC => __FILE__
-task GEMSPEC do |task|
-	spec = $hoespec.spec
-	spec.files.delete( '.gemtest' )
-	spec.signing_key = nil
-	spec.cert_chain = Rake::FileList[ 'certs/*.pem' ].to_a
-	spec.version = "#{spec.version.bump}.pre#{Time.now.strftime("%Y%m%d%H%M%S")}"
-	File.open( task.name, 'w' ) do |fh|
-		fh.write( spec.to_ruby )
+
+########################################################################
+### T E S T I N G
+########################################################################
+
+begin
+	require 'rspec/core/rake_task'
+	task :test => :spec
+
+	desc "Run specs"
+	RSpec::Core::RakeTask.new do |t|
+		t.pattern = "spec/**/*_spec.rb"
 	end
+
+	desc "Build a coverage report"
+	task :coverage do
+		ENV[ 'COVERAGE' ] = "yep"
+		Rake::Task[ :spec ].invoke
+	end
+
+rescue LoadError
+	$stderr.puts "Omitting testing tasks, rspec doesn't seem to be installed."
 end
-CLOBBER.include( GEMSPEC.to_s )
 
-task :default => :gemspec
 
+########################################################################
+### M A N I F E S T
+########################################################################
+__END__
+lib/thingfish/processor/pdf.rb

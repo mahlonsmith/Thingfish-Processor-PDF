@@ -3,6 +3,12 @@
 home
 : https:/bitbucket.org/mahlon/Thingfish-Processor-PDF
 
+ * home:
+   * http://code.martini.nu/thingfish-processor-pdf
+ * mirrors:
+   * https://github.com/mahlonsmith/Thingfish-Processor-PDF
+   * https://hg.sr.ht/~mahlon/Thingfish-Processor-PDF
+
 
 ## Description
 
@@ -32,8 +38,11 @@ Simply enable this processor in the *Thingfish* section of your configuration:
 
 ## Contributing
 
-You can check out the current development source with Mercurial via its
-{project page}[http://bitbucket.org/mahlon/thingfish-processor-pdf].
+You can check out the current development source with Mercurial
+[here](http://code.martini.nu/thingfish-processor-pdf]), or via a mirror:
+
+ * github: https://github.com/mahlonsmith/Thingfish-Processor-PDF
+ * SourceHut: https://hg.sr.ht/~mahlon/Thingfish-Processor-PDF
 
 After checking out the source, run:
 
